@@ -47,7 +47,7 @@ def main():
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     if args.dataset == "shd":
-        model = SNN_Delay_2(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, 
+        model = SNN_Delay(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, 
                             learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
     
     #print trainable parameters of the model
@@ -74,19 +74,20 @@ def main():
 
     dcls_p_params = []
     w_params = []   
-    # for name, param in model.named_parameters():
-    #     if param.requires_grad and '.P' in name:     
-    #         dcls_p_params.append(param)
-    #     elif param.requires_grad:
-    #         w_params.append(param)
 
-    for m in model.modules():
-        if isinstance(m, Dcls1d):
-            dcls_p_params.append(m.P)
-            w_params.append(m.weight)
-        elif isinstance(m, nn.Linear):
-            w_params.append(m.weight)
-            w_params.append(m.bias)
+    for name, param in model.named_parameters():
+        if param.requires_grad and '.P' in name:     
+            dcls_p_params.append(param)
+        elif param.requires_grad:
+            w_params.append(param)
+
+    # for m in model.modules():
+    #     if isinstance(m, Dcls1d):
+    #         dcls_p_params.append(m.P)
+    #         w_params.append(m.weight)
+    #     elif isinstance(m, nn.Linear):
+    #         w_params.append(m.weight)
+    #         w_params.append(m.bias)
     # print("trainset: ", len(trainset))
     # print("testset: ", len(testset))
 
@@ -95,8 +96,7 @@ def main():
 
 
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
-    #criterion = SF.mse_count_loss(correct_rate=0.8, incorrect_rate=0.2)
-    criterion = SF.ce_count_loss()
+    criterion = SF.mse_count_loss(correct_rate=0.8, incorrect_rate=0.2)
 
     loss_history = []
     accuracy_history = []
@@ -114,7 +114,7 @@ def main():
             labels = labels.to(device)
             # print(input.shape)
             # print(labels.shape)
-            # exit()
+
             input = input.type(torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
 
             spk_rec, mem_rec = model(input)

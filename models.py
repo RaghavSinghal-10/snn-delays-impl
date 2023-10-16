@@ -7,7 +7,7 @@ from collections import OrderedDict
 from DCLS.construct.modules import Dcls1d
     
 
-class SNN_Delay_2(nn.Module):
+class SNN_Delay(nn.Module):
 
     def __init__(self, beta, learn_beta, threshold, learn_threshold, time_steps):
 
