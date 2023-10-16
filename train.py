@@ -49,6 +49,8 @@ def main():
     if args.dataset == "shd":
         model = SNN_Delay(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, 
                             learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
+        
+        #model = SNN(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, time_steps=args.time_steps, learn_threshold=args.learn_threshold).to(device)
     
     #print trainable parameters of the model
     print("Parameters of the model: ")
@@ -94,6 +96,7 @@ def main():
     optimizer_dcls = optim.Adam(dcls_p_params, lr=100*args.lr, weight_decay=0)
     optimizer_w = optim.Adam(w_params, lr=args.lr, weight_decay=1e-5)
 
+    #optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-5)
 
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
     criterion = SF.mse_count_loss(correct_rate=0.8, incorrect_rate=0.2)
@@ -127,10 +130,14 @@ def main():
             optimizer_dcls.zero_grad()
             optimizer_w.zero_grad()
 
+            #optimizer.zero_grad()
+
             loss.backward()
 
             optimizer_dcls.step()
             optimizer_w.step()
+
+            optimizer.step()
 
             # call reset_model of the model to reset the state variables of the model
             model.reset_model(train=True)
@@ -161,7 +168,7 @@ def main():
                     m.version = 'max'
                     m.DCK.version = 'max'
 
-            model.round_pos()
+            #model.round_pos()
 
             for i, (images, labels, _) in enumerate(testloader, 0):
                 

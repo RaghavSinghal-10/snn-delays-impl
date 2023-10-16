@@ -7,6 +7,44 @@ from collections import OrderedDict
 from DCLS.construct.modules import Dcls1d
     
 
+class SNN(nn.Module):
+
+    def __init__(self, beta, learn_beta, threshold, learn_threshold, time_steps):
+
+        super().__init__()
+
+        self.spike_grad = surrogate.atan()
+        self.learn_beta = learn_beta
+        self.learn_threshold = learn_threshold
+        self.beta = beta
+        self.threshold = threshold
+        self.time_steps = time_steps
+
+        self.net = nn.Sequential(
+                    nn.Linear(140, 256),
+                    snn.Leaky(beta=beta, spike_grad=self.spike_grad, init_hidden=True, learn_beta=self.learn_beta),
+                    nn.Linear(256, 256),
+                    snn.Leaky(beta=beta, spike_grad=self.spike_grad, init_hidden=True, learn_beta=self.learn_beta),
+                    nn.Linear(256, 20),
+                    snn.Leaky(beta=beta, spike_grad=self.spike_grad, init_hidden=True, learn_beta=self.learn_beta, output=True)
+                    )
+        
+    def forward(self, data):
+
+        spk_rec = []
+        mem_rec = []
+        utils.reset(self.net)  # resets hidden states for all LIF neurons in net
+
+        #print(data.size(1))
+        for step in range(data.size(1)):  # data.size(1) = number of time steps
+            spk_out, mem_out = self.net(data[:,step,:])
+            #spk_out, mem_out = self.net(data[step])
+            spk_rec.append(spk_out)
+            mem_rec.append(mem_out)
+
+        return torch.stack(spk_rec), torch.stack(mem_rec)
+
+
 class SNN_Delay(nn.Module):
 
     def __init__(self, beta, learn_beta, threshold, learn_threshold, time_steps):
@@ -28,7 +66,7 @@ class SNN_Delay(nn.Module):
         self.siginit = self.max_delay//2
 
         self.flatten = nn.Flatten()
-        self.dcls1 = Dcls1d(in_channels=700, out_channels=256, kernel_count=1, stride=1, padding=0, dilated_kernel_size=self.max_delay, groups=1, bias=True, padding_mode='zeros', version='gauss')
+        self.dcls1 = Dcls1d(in_channels=140, out_channels=256, kernel_count=1, stride=1, padding=0, dilated_kernel_size=self.max_delay, groups=1, bias=True, padding_mode='zeros', version='gauss')
         self.dropout1 = nn.Dropout(p=0.4)
         self.bn1 = nn.BatchNorm1d(256)
         self.lif1 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
