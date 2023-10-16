@@ -43,14 +43,15 @@ args = parser.parse_args()
 # wandb.config.update(args)
 
 def main():
-
+        
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     if args.dataset == "nmnist":
         model = SNN_Delay(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
 
     elif args.dataset == "shd":
-        model = SNN_Delay_2(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
+        model = SNN_Delay_2(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, 
+                            learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
     
     #print trainable parameters of the model
     print("Parameters of the model: ")
@@ -78,22 +79,32 @@ def main():
         # sensor_size = tonic.datasets.SHD.sensor_size
 
         # transform = tonic.transforms.Compose([
-        #     tonic.transforms.ToFrame(sensor_size=sensor_size, n_time_bins=args.time_steps)
+        #     tonic.transforms.ToFrame(sensor_size=sensor_size, time_window=10000, n_time_bins=args.time_steps)
         #     ])
         
         # trainset = tonic.datasets.SHD(save_to='./data', train=True, transform=transform)
         # testset = tonic.datasets.SHD(save_to='./data', train=False, transform=transform)
 
+        # trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size_train, shuffle=True, num_workers=args.num_workers, drop_last=False, collate_fn=tonic.collation.PadTensors(batch_first=True))
+        # testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size_test, shuffle=False, num_workers=args.num_workers, drop_last=False, collate_fn=tonic.collation.PadTensors(batch_first=True))
+
         trainloader, testloader = SHD_dataloaders(datasets_path='./datasets', n_bins=args.n_bins, batch_size=args.batch_size_train, time_step=args.time_steps)
 
     dcls_p_params = []
     w_params = []   
-    for name, param in model.named_parameters():
-        if param.requires_grad and '.P' in name:     
-            dcls_p_params.append(param)
-        elif param.requires_grad:
-            w_params.append(param)
+    # for name, param in model.named_parameters():
+    #     if param.requires_grad and '.P' in name:     
+    #         dcls_p_params.append(param)
+    #     elif param.requires_grad:
+    #         w_params.append(param)
 
+    for m in model.modules():
+        if isinstance(m, Dcls1d):
+            dcls_p_params.append(m.P)
+            w_params.append(m.weight)
+        elif isinstance(m, nn.Linear):
+            w_params.append(m.weight)
+            w_params.append(m.bias)
     # print("trainset: ", len(trainset))
     # print("testset: ", len(testset))
 
@@ -119,8 +130,6 @@ def main():
 
             input = input.to(device)
             labels = labels.to(device)
-
-            #y = F.one_hot(labels, num_classes=20).long().to(device)
             # print(input.shape)
             # print(labels.shape)
             # exit()
@@ -128,11 +137,9 @@ def main():
 
             spk_rec, mem_rec = model(input)
 
-            # print(mem_rec.shape)
-            # m = torch.sum(nn.Softmax(dim=1)(spk_rec), dim=0)
-            # loss = nn.CrossEntropyLoss()(m, labels)
-
             loss = criterion(spk_rec, labels)
+
+
             #print(loss)
 
             optimizer_dcls.zero_grad()
@@ -159,9 +166,9 @@ def main():
         total = 0
         running_acc = 0.0
 
+
+        model.eval()
         with torch.no_grad():
-            
-            model.eval()
 
             # automate the above for all dcls layers
             for m in model.modules():
