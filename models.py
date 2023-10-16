@@ -7,107 +7,6 @@ from collections import OrderedDict
 from DCLS.construct.modules import Dcls1d
     
 
-class SNN_Delay(nn.Module):
-
-    def __init__(self, beta, learn_beta, threshold, learn_threshold, time_steps):
-
-        super().__init__()
-
-        self.spike_grad = surrogate.atan()
-        self.learn_beta = learn_beta
-        self.learn_threshold = learn_threshold
-        self.beta = beta
-        self.threshold = threshold
-        self.time_steps = time_steps
-
-        self.left_pad = 250//self.time_steps
-
-        self.max_delay = 250//self.time_steps
-        self.max_delay = self.max_delay if self.max_delay%2==1 else self.max_delay+1
-
-        self.siginit = self.max_delay//2
-        
-        # self.net = nn.Sequential(
-        #             nn.Flatten(),
-        #             nn.Linear(34*34*2, 300),
-        #             snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, init_hidden=True, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold),
-        #             nn.Linear(300, 300),
-        #             snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, init_hidden=True, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold),
-        #             nn.Linear(300, 100),
-        #             snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, init_hidden=True, output=False, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold),
-        #             )
-
-        self.flatten = nn.Flatten()
-        self.dcls1 = Dcls1d(in_channels=34*34*2, out_channels=300, kernel_count=1, stride=1, padding=0, dilated_kernel_size=self.max_delay, groups=1, bias=True, padding_mode='zeros', version='gauss')
-        self.lif1 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
-        self.dcls2 = Dcls1d(in_channels=300, out_channels=10, kernel_count=1, stride=1, padding=0, dilated_kernel_size=self.max_delay, groups=1, bias=True, padding_mode='zeros', version='gauss')
-        self.lif2 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
-        # self.fc1 = nn.Linear(34, 10)
-        # self.fc2 = nn.Linear(34*34*2, 10)
-        # self.net = nn.Sequential(
-        #             nn.Flatten(),
-        #             Dcls1d(in_channels=34*34*2, out_channels=300, kernel_count=1, stride=1, padding=0, dilated_kernel_size=1, groups=1, bias=True, padding_mode='zeros'),
-        # )
-
-        # set sig paramaters of the dcls1 and dcls2 to siginit and required_grad=False\
-        
-        nn.init.constant_(self.dcls1.SIG, self.siginit)
-        nn.init.constant_(self.dcls2.SIG, self.siginit)
-        # print(self.dcls1.SIG.requires_grad)
-        self.dcls1.SIG.requires_grad = False
-        self.dcls2.SIG.requires_grad = False
-
-        
-
-    def forward(self, data):
-
-        mem_1 = self.lif1.init_leaky()
-        mem_2 = self.lif2.init_leaky()
-
-        # print(self.dcls1.SIG.requires_grad)
-        # self.dcls1.SIG.requires_grad = False
-        # self.dcls2.SIG.requires_grad = False
-
-        spk_rec_1 = [] 
-
-        print(data_1.size())
-
-        # # left pad the time_steps with T time steps of zeros
-        data_1 = F.pad(data_1, (0,0,self.left_pad,0), 'constant', 0)
-        print(data_1.size())
-
-        # permute to [batch_size, features, time_steps]
-        x_1 = data_1.permute(0,2,1)
-        print(x_1.size())
-
-        x_1 = self.dcls1(x_1)
-        print(x_1.size())
-
-        for step in range(x_1.size(2)):
-            spk_out, mem_1 = self.lif1(x_1[:,:,step], mem_1)
-            spk_rec_1.append(spk_out)
-
-        in_1 = torch.stack(spk_rec_1, dim=2)
-        print(in_1.size())
-
-        in_1 = F.pad(in_1, (self.left_pad,0), 'constant', 0)
-        print(in_1.size())
-
-        in_1 = self.dcls2(in_1)
-        print(in_1.size())
-
-
-        spk_rec_2 = []
-        mem_rec_2 = []
-        for step in range(in_1.size(2)):
-            spk_out, mem_2 = self.lif2(in_1[:,:,step], mem_2)
-            spk_rec_2.append(spk_out)
-            mem_rec_2.append(mem_2)
-
-
-        return torch.stack(spk_rec_2), torch.stack(mem_rec_2)
-    
-
 class SNN_Delay_2(nn.Module):
 
     def __init__(self, beta, learn_beta, threshold, learn_threshold, time_steps):
@@ -140,7 +39,7 @@ class SNN_Delay_2(nn.Module):
         self.dcls3 = Dcls1d(in_channels=256, out_channels=20, kernel_count=1, stride=1, padding=0, dilated_kernel_size=self.max_delay, groups=1, bias=True, padding_mode='zeros', version='gauss')
         self.lif3 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
 
-        # set sig paramaters of the dcls1 and dcls2 to siginit and required_grad=False\
+        # set sig parameters of the dcls layers to siginit and required_grad=False
 
         for m in self.modules():
             if isinstance(m, Dcls1d):

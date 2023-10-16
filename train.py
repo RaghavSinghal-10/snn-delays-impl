@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(description='snn learnable delays')
 
 parser.add_argument('--batch_size_train', default=256, type=int, help='batch size for training the linear classifier')
 parser.add_argument('--batch_size_test', default=256, type=int, help='batch size for training the linear classifier')
-parser.add_argument('--num_workers', default=24, type=int, help='number of workers for loading the data')
+parser.add_argument('--num_workers', default=4, type=int, help='number of workers for loading the data')
 parser.add_argument('--dataset', default='shd', type=str, help='dataset to be used')
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate for training the linear classifier')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum for training the linear classifier')
@@ -34,7 +34,7 @@ parser.add_argument('--num_epochs', default=100, type=int, help='number of epoch
 parser.add_argument('--learn_threshold', action='store_true', help='learn threshold for the LIF neurons in the backbone')
 parser.add_argument('--threshold', default=1.0, type=float, help='threshold for the LIF neurons in the backbone')
 
-parser.add_argument('--beta', default=0.37, type=float, help='beta for the LIF neurons in the backbone')
+parser.add_argument('--beta', default=0.9, type=float, help='beta for the LIF neurons in the backbone')
 parser.add_argument('--n_bins', default=5, type=int, help='number of bins for the SNN')
 parser.add_argument('--time_steps', default=10, type=int, help='number of time steps for the SNN')
 
@@ -46,10 +46,7 @@ def main():
         
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
-    if args.dataset == "nmnist":
-        model = SNN_Delay(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
-
-    elif args.dataset == "shd":
+    if args.dataset == "shd":
         model = SNN_Delay_2(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, 
                             learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
     
@@ -60,22 +57,7 @@ def main():
             print(name, param.data.shape)
 
 
-    if args.dataset == "nmnist":
-        sensor_size = tonic.datasets.NMNIST.sensor_size
-
-        transform = tonic.transforms.Compose([
-            tonic.transforms.Denoise(filter_time=10000),
-            tonic.transforms.ToFrame(sensor_size=sensor_size, n_time_bins=args.time_steps)
-            ])
-        
-        trainset = tonic.datasets.NMNIST(save_to='./data', train=True, transform=transform)
-        testset = tonic.datasets.NMNIST(save_to='./data', train=False, transform=transform)
-
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size_train, shuffle=True, num_workers=args.num_workers, drop_last=False)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size_test, shuffle=False, num_workers=args.num_workers, drop_last=False)
-
-
-    elif args.dataset == 'shd':
+    if args.dataset == 'shd':
         # sensor_size = tonic.datasets.SHD.sensor_size
 
         # transform = tonic.transforms.Compose([
