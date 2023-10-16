@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(description='Spiking RNN training')
 parser.add_argument('--batch_size_train', default=256, type=int, help='batch size for training the linear classifier')
 parser.add_argument('--batch_size_test', default=256, type=int, help='batch size for training the linear classifier')
 parser.add_argument('--num_workers', default=24, type=int, help='number of workers for loading the data')
-parser.add_argument('--dataset', default='nmnist', type=str, help='dataset to be used')
-parser.add_argument('--lr', default=0.02, type=float, help='learning rate for training the linear classifier')
+parser.add_argument('--dataset', default='shd', type=str, help='dataset to be used')
+parser.add_argument('--lr', default=0.001, type=float, help='learning rate for training the linear classifier')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum for training the linear classifier')
 parser.add_argument('--device', default='cuda', type=str, help='device to be used for training the linear classifier')
 parser.add_argument('--learn_beta', action='store_true', help='learn beta for the LIF neurons in the backbone')
@@ -34,7 +34,7 @@ parser.add_argument('--num_epochs', default=100, type=int, help='number of epoch
 parser.add_argument('--learn_threshold', action='store_true', help='learn threshold for the LIF neurons in the backbone')
 parser.add_argument('--threshold', default=1.0, type=float, help='threshold for the LIF neurons in the backbone')
 
-parser.add_argument('--beta', default=0.1, type=float, help='beta for the LIF neurons in the backbone')
+parser.add_argument('--beta', default=0.37, type=float, help='beta for the LIF neurons in the backbone')
 parser.add_argument('--n_bins', default=5, type=int, help='number of bins for the SNN')
 parser.add_argument('--time_steps', default=10, type=int, help='number of time steps for the SNN')
 
@@ -86,15 +86,21 @@ def main():
 
         trainloader, testloader = SHD_dataloaders(datasets_path='./datasets', n_bins=args.n_bins, batch_size=args.batch_size_train, time_step=args.time_steps)
 
+    dcls_p_params = []
+    w_params = []   
+    for name, param in model.named_parameters():
+        if param.requires_grad and '.P' in name:     
+            dcls_p_params.append(param)
+        elif param.requires_grad:
+            w_params.append(param)
 
-    
     # print("trainset: ", len(trainset))
     # print("testset: ", len(testset))
 
-    # exit()
-    #implement a learning rate scheduler
+    optimizer_dcls = optim.Adam(dcls_p_params, lr=100*args.lr, weight_decay=0)
+    optimizer_w = optim.Adam(w_params, lr=args.lr, weight_decay=1e-5)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999))
+
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
     #criterion = SF.mse_count_loss(correct_rate=0.8, incorrect_rate=0.2)
     criterion = SF.ce_count_loss()
@@ -114,6 +120,7 @@ def main():
             input = input.to(device)
             labels = labels.to(device)
 
+            #y = F.one_hot(labels, num_classes=20).long().to(device)
             # print(input.shape)
             # print(labels.shape)
             # exit()
@@ -121,14 +128,20 @@ def main():
 
             spk_rec, mem_rec = model(input)
 
+            # print(mem_rec.shape)
+            # m = torch.sum(nn.Softmax(dim=1)(spk_rec), dim=0)
+            # loss = nn.CrossEntropyLoss()(m, labels)
+
             loss = criterion(spk_rec, labels)
             #print(loss)
 
-            optimizer.zero_grad()
+            optimizer_dcls.zero_grad()
+            optimizer_w.zero_grad()
 
             loss.backward()
 
-            optimizer.step()
+            optimizer_dcls.step()
+            optimizer_w.step()
 
             # call reset_model of the model to reset the state variables of the model
             model.reset_model(train=True)
@@ -150,14 +163,12 @@ def main():
             
             model.eval()
 
-            model.dcls1.SIG *= 0
-            model.dcls2.SIG *= 0
-
-            model.dcls1.version = 'max'
-            model.dcls2.version = 'max'
-
-            model.dcls1.DCK.version = 'max'
-            model.dcls2.DCK.version = 'max'
+            # automate the above for all dcls layers
+            for m in model.modules():
+                if isinstance(m, Dcls1d):
+                    m.SIG *= 0
+                    m.version = 'max'
+                    m.DCK.version = 'max'
 
             model.round_pos()
 
@@ -182,7 +193,14 @@ def main():
             accuracy = running_acc / len(testloader)
             accuracy_history.append(accuracy)
 
+            for m in model.modules():
+                if isinstance(m, Dcls1d):
+                    m.version = 'gauss'
+                    m.DCK.version = 'gauss'
+
             print("Total: {}, Accuracy: {}".format(total, accuracy))
+            print('Max Accuracy: %.3f %%' % (max(accuracy_history)))
+
           
 if __name__ == '__main__':
     main()

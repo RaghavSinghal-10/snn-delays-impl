@@ -5,48 +5,6 @@ import snntorch as snn
 from snntorch import surrogate, utils
 from collections import OrderedDict
 from DCLS.construct.modules import Dcls1d
-
-
-class SRNN(nn.Module):
-    def __init__(self, beta_lsm, beta_lif, learn_beta, threshold, learn_threshold, N, all_to_all):
-        super().__init__()
-
-        spike_grad = surrogate.atan()
-        self.learn_beta = learn_beta
-        self.learn_threshold = learn_threshold
-        self.beta_lsm = beta_lsm
-        self.beta_lif = beta_lif
-        self.threshold = threshold
-        self.N = N
-        self.all_to_all = all_to_all
-
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(34*34*2, N)
-        self.lsm = snn.RLeaky(beta=self.beta_lsm, all_to_all=self.all_to_all, spike_grad=spike_grad, learn_beta=self.learn_beta,
-                                    learn_threshold=self.learn_threshold, linear_features=self.N, threshold=self.threshold)
-        self.fc2 = nn.Linear(N, 10)
-        self.lif1 = snn.Leaky(beta=self.beta_lif, spike_grad=spike_grad, learn_beta=self.learn_beta, output=True)
-            
-
-    def forward(self, data):
-        spk_rec = []
-        mem_rec = []
-
-        spk_lsm, syn_lsm, mem_lsm = self.lsm.init_rsynaptic()
-        mem_out = self.lif1.init_leaky()
-
-        # print(data.shape)
-        for step in range(data.size(1)):  # data.size(1) = number of time stepsss
-            in_curr = self.fc1(self.flatten(data[:,step,:,:,:]))
-            spk_lsm, mem_lsm = self.lsm(in_curr, spk_lsm, mem_lsm) 
-            out_curr = self.fc2(spk_lsm)
-            spk_out, mem_out = self.lif1(out_curr, mem_out)
-            #print(spk_out.shape)
-            spk_rec.append(spk_out)
-            mem_rec.append(mem_out)
-            
-
-        return torch.stack(spk_rec), torch.stack(mem_rec)
     
 
 class SNN_Delay(nn.Module):
@@ -182,8 +140,12 @@ class SNN_Delay_2(nn.Module):
 
         self.flatten = nn.Flatten()
         self.dcls1 = Dcls1d(in_channels=140, out_channels=256, kernel_count=1, stride=1, padding=0, dilated_kernel_size=self.max_delay, groups=1, bias=True, padding_mode='zeros', version='gauss')
+        self.dropout1 = nn.Dropout(p=0.4)
+        self.bn1 = nn.BatchNorm1d(256)
         self.lif1 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
         self.dcls2 = Dcls1d(in_channels=256, out_channels=256, kernel_count=1, stride=1, padding=0, dilated_kernel_size=self.max_delay, groups=1, bias=True, padding_mode='zeros', version='gauss')
+        self.dropout2 = nn.Dropout(p=0.4)
+        self.bn2 = nn.BatchNorm1d(256)
         self.lif2 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
         self.dcls3 = Dcls1d(in_channels=256, out_channels=20, kernel_count=1, stride=1, padding=0, dilated_kernel_size=self.max_delay, groups=1, bias=True, padding_mode='zeros', version='gauss')
         self.lif3 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
@@ -225,6 +187,8 @@ class SNN_Delay_2(nn.Module):
         #print(x_1.size())
 
         x_1 = self.dcls1(x_1)
+
+        x_1 = self.bn1(x_1)
         #print(x_1.size())
 
         for step in range(x_1.size(2)):
@@ -232,6 +196,8 @@ class SNN_Delay_2(nn.Module):
             spk_rec_1.append(spk_out)
 
         in_1 = torch.stack(spk_rec_1, dim=2)
+
+        in_1 = self.dropout1(in_1)
         #print(in_1.size())
 
         in_1 = F.pad(in_1, (self.left_pad,0), 'constant', 0)
@@ -240,6 +206,8 @@ class SNN_Delay_2(nn.Module):
         in_1 = self.dcls2(in_1)
         #print(in_1.size())
 
+        in_1 = self.bn2(in_1)
+
         spk_rec_2 = []
 
         for step in range(in_1.size(2)):
@@ -247,6 +215,8 @@ class SNN_Delay_2(nn.Module):
             spk_rec_2.append(spk_out)
         
         in_2 = torch.stack(spk_rec_2, dim=2)
+
+        in_2 = self.dropout2(in_2)
 
         in_2 = F.pad(in_2, (self.left_pad,0), 'constant', 0)
 
