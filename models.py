@@ -115,12 +115,7 @@ class SNN_Delay(nn.Module):
 
     def reset_model(self, train=True):
 
-        # We use clamp_parameters of the Dcls1d modules
-        # self.dcls1.clamp_parameters()
-        # self.dcls2.clamp_parameters()
-        # self.dcls3.clamp_parameters()
-
-        # automate to do this for all dcls layers
+        # clamp parameters of dcls layers
 
         for m in self.modules():
             if isinstance(m, Dcls1d):
@@ -129,8 +124,7 @@ class SNN_Delay(nn.Module):
 
     def decrease_sig(self, epoch, num_epochs, time_steps):
 
-        # Decreasing to 0.23 instead of 0.5
-
+        # Decreasing to 0.23
         final_epoch = num_epochs//4
         alpha = 0
 
