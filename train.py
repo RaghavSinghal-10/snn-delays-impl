@@ -16,10 +16,10 @@ from ray.air import Checkpoint, session
 from ray.tune.schedulers import ASHAScheduler
 from datasets import *
 
-# import wandb
+import wandb
 
-# wandb.init()
-parser = argparse.ArgumentParser(description='Spiking RNN training')
+wandb.init()
+parser = argparse.ArgumentParser(description='snn learnable delays')
 
 
 parser.add_argument('--batch_size_train', default=256, type=int, help='batch size for training the linear classifier')
@@ -40,7 +40,7 @@ parser.add_argument('--time_steps', default=10, type=int, help='number of time s
 
 args = parser.parse_args()
 
-# wandb.config.update(args)
+wandb.config.update(args)
 
 def main():
         
@@ -156,6 +156,8 @@ def main():
             # print statistics
             running_loss += loss.item()
 
+            wandb.log({"train loss": loss.item()})
+
         #scheduler.step()
         model.decrease_sig(epoch=i, num_epochs=args.num_epochs, time_steps=args.time_steps)
 
@@ -197,6 +199,7 @@ def main():
                 total += labels.size(0)
                 running_acc += acc
 
+
             accuracy = running_acc / len(testloader)
             accuracy_history.append(accuracy)
 
@@ -208,6 +211,10 @@ def main():
             print("Total: {}, Accuracy: {}".format(total, accuracy))
             print('Max Accuracy: %.3f %%' % (max(accuracy_history)))
 
-          
+            wandb.log({"test accuracy": accuracy})
+            wandb.log({"max accuracy": max(accuracy_history)})
+
+            
+
 if __name__ == '__main__':
     main()
