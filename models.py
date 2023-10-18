@@ -81,7 +81,7 @@ class SNN_Delay(nn.Module):
 
         for m in self.modules():
             if isinstance(m, Dcls1d):
-                nn.init.uniform_(m.P, a=-self.max_delay/2, b=self.max_delay/2)
+                nn.init.uniform_(m.P, a=-self.max_delay//2, b=self.max_delay//2)
                 m.clamp_parameters()
 
         for m in self.modules():
