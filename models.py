@@ -86,8 +86,8 @@ class SNN_Delay(nn.Module):
 
         for m in self.modules():
             if isinstance(m, Dcls1d):
-                nn.init.constant_(m.P, self.siginit)
-                m.P.requires_grad = False
+                nn.init.constant_(m.SIG, self.siginit)
+                m.SIG.requires_grad = False
 
     def forward(self, data):
 

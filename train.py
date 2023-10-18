@@ -137,7 +137,6 @@ def main():
             optimizer_dcls.step()
             optimizer_w.step()
 
-            optimizer.step()
 
             # call reset_model of the model to reset the state variables of the model
             model.reset_model(train=True)
