@@ -47,7 +47,7 @@ class SNN(nn.Module):
 
 class SNN_Delay(nn.Module):
 
-    def __init__(self, beta, learn_beta, threshold, learn_threshold, time_steps):
+    def __init__(self, beta, learn_beta, threshold, learn_threshold, time_step):
 
         super().__init__()
 
@@ -56,11 +56,11 @@ class SNN_Delay(nn.Module):
         self.learn_threshold = learn_threshold
         self.beta = beta
         self.threshold = threshold
-        self.time_steps = time_steps
+        self.time_step = time_step
 
-        self.left_pad = 250//self.time_steps
+        self.left_pad = 250//self.time_step
 
-        self.max_delay = 250//self.time_steps
+        self.max_delay = 250//self.time_step
         self.max_delay = self.max_delay if self.max_delay%2==1 else self.max_delay+1
 
         self.siginit = self.max_delay//2
@@ -164,13 +164,13 @@ class SNN_Delay(nn.Module):
                 m.clamp_parameters()
 
 
-    def decrease_sig(self, epoch, num_epochs, time_steps):
+    def decrease_sig(self, epoch, num_epochs, time_step):
 
         # Decreasing to 0.23
         final_epoch = num_epochs//4
         alpha = 0
 
-        max_delay = 250//time_steps
+        max_delay = 250//time_step
         max_delay = max_delay if max_delay%2==1 else max_delay+1
 
         siginit = max_delay//2
@@ -384,7 +384,6 @@ class SNN_Delay_Conv(nn.Module):
                     m.clamp_parameters()
 
 
-
 class SNN_Delay_Conv_Small(nn.Module):
 
     def __init__(self, beta, learn_beta, threshold, learn_threshold, time_steps, surr):
@@ -404,8 +403,15 @@ class SNN_Delay_Conv_Small(nn.Module):
         self.time_steps = time_steps
 
         # initialize the dcls parameters
-        self.left_pad = 250//self.time_steps
-        self.max_delay = 250//self.time_steps
+        # self.left_pad = 250//self.time_steps
+        # self.max_delay = 250//self.time_steps
+
+        self.left_pad = self.time_steps
+        self.max_delay = self.time_steps
+
+        # self.left_pad = 20
+        # self.max_delay = 20
+
         self.max_delay = self.max_delay if self.max_delay%2==1 else self.max_delay+1
         self.siginit = self.max_delay//2
 
@@ -413,18 +419,25 @@ class SNN_Delay_Conv_Small(nn.Module):
         self.dcls3_1d_1 = Dcls3_1d(in_channels=2, out_channels=12, kernel_count=1, stride=1, version='gauss',
                                    padding=0, dilated_kernel_size=self.max_delay, dense_kernel_size=(5,5))
         self.mp_1 = nn.MaxPool2d(2)
-        self.lif_1 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
+        self.bn_1 = nn.BatchNorm2d(12)
+        self.lif_1 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, 
+                               threshold=self.threshold, learn_threshold=self.learn_threshold)
         self.dcls3_1d_2 = Dcls3_1d(in_channels=12, out_channels=32, kernel_count=1, stride=1, version='gauss',
                                     padding=0, dilated_kernel_size=self.max_delay, dense_kernel_size=(5,5))
         self.mp_2 = nn.MaxPool2d(2)
-        self.lif_2 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
+        self.bn_2 = nn.BatchNorm2d(32)
+        self.lif_2 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, 
+                               threshold=self.threshold, learn_threshold=self.learn_threshold)
         self.flatten = nn.Flatten(start_dim=1, end_dim=3)
         self.dcls1d_1 = Dcls1d(in_channels=32*5*5, out_channels=100, kernel_count=1, stride=1, padding=0, 
                                dilated_kernel_size=self.max_delay, version='gauss')
-        self.lif_3 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
+        self.bn_3 = nn.BatchNorm1d(100)
+        self.lif_3 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, 
+                               threshold=self.threshold, learn_threshold=self.learn_threshold)
         self.dcls1d_2 = Dcls1d(in_channels=100, out_channels=10, kernel_count=1, stride=1, padding=0, 
                                dilated_kernel_size=self.max_delay, version='gauss')
-        self.lif_4 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, threshold=self.threshold, learn_threshold=self.learn_threshold)
+        self.lif_4 = snn.Leaky(beta=self.beta, spike_grad=self.spike_grad, learn_beta=self.learn_beta, 
+                               threshold=self.threshold, learn_threshold=self.learn_threshold)
 
         # set P parameters of the dcls1d layers to random values between -max_delay//2 and max_delay//2
         for m in self.modules():
@@ -463,7 +476,7 @@ class SNN_Delay_Conv_Small(nn.Module):
         spk_rec_1 = []
 
         for step in range(x_1.size(4)):
-            in_1 = self.mp_1(x_1[:,:,:,:,step])
+            in_1 = self.bn_1(self.mp_1(x_1[:,:,:,:,step]))
             spk_out, mem_1 = self.lif_1(in_1, mem_1)
             spk_rec_1.append(spk_out)
 
@@ -479,7 +492,7 @@ class SNN_Delay_Conv_Small(nn.Module):
         spk_rec_2 = []
 
         for step in range(x_2.size(4)):
-            in_2 = self.mp_2(x_2[:,:,:,:,step])
+            in_2 = self.bn_2(self.mp_2(x_2[:,:,:,:,step]))
             spk_out, mem_2 = self.lif_2(in_2, mem_2)
             spk_rec_2.append(spk_out)
 
@@ -490,7 +503,9 @@ class SNN_Delay_Conv_Small(nn.Module):
 
         # now change x_3 from [batch_size, C, H, W, time_steps] to [batch_size, C*H*W, time_steps]
 
+        #print(x_3.size())
         x_3 = self.flatten(x_3)
+        #print(x_3.size())
 
         x_3 = self.dcls1d_1(x_3)
         #print(x_3.size())
@@ -499,7 +514,8 @@ class SNN_Delay_Conv_Small(nn.Module):
         mem_rec_3 = []
 
         for step in range(x_3.size(2)):
-            spk_out, mem_3 = self.lif_3(x_3[:,:,step], mem_3)
+            in_3 = self.bn_3(x_3[:,:,step])
+            spk_out, mem_3 = self.lif_3(in_3, mem_3)
             spk_rec_3.append(spk_out)
             mem_rec_3.append(mem_3)
 
@@ -543,7 +559,8 @@ class SNN_Delay_Conv_Small(nn.Module):
         final_epoch = num_epochs//4
         alpha = 0
 
-        max_delay = 250//time_steps
+        # max_delay = 250//time_steps
+        max_delay = time_steps
         max_delay = max_delay if max_delay%2==1 else max_delay+1
 
         siginit = max_delay//2

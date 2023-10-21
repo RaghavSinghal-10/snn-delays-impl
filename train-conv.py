@@ -132,7 +132,7 @@ def main():
             running_loss += loss.detach().item()
 
             wandb.log({"train_loss": loss.detach().item()})
-
+        
         #print epoch loss
         loss_history.append(running_loss / len(trainloader))
         print('[%d] loss: %.3f' % (epoch + 1, running_loss / len(trainloader)))
@@ -140,7 +140,7 @@ def main():
         total = 0
         running_acc = 0.0
 
-        model.decrease_sig(epoch=i, num_epochs=args.num_epochs, time_steps=args.time_steps)
+        model.decrease_sig(epoch=epoch, num_epochs=args.num_epochs, time_steps=args.time_steps)
 
 
         model.eval()

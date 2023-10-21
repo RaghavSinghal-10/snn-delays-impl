@@ -36,7 +36,9 @@ parser.add_argument('--threshold', default=1.0, type=float, help='threshold for 
 
 parser.add_argument('--beta', default=0.9, type=float, help='beta for the LIF neurons in the backbone')
 parser.add_argument('--n_bins', default=5, type=int, help='number of bins for the SNN')
-parser.add_argument('--time_steps', default=10, type=int, help='number of time steps for the SNN')
+parser.add_argument('--time_step', default=10, type=int, help='time duration')
+
+# take care of time duration and time_step
 
 args = parser.parse_args()
 
@@ -48,7 +50,7 @@ def main():
 
     if args.dataset == "shd":
         model = SNN_Delay(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, 
-                            learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
+                            learn_threshold=args.learn_threshold, time_step=args.time_step).to(device)
         
         #model = SNN(beta=args.beta, learn_beta=args.learn_beta, threshold=args.threshold, time_steps=args.time_steps, learn_threshold=args.learn_threshold).to(device)
     
@@ -72,7 +74,7 @@ def main():
         # trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size_train, shuffle=True, num_workers=args.num_workers, drop_last=False, collate_fn=tonic.collation.PadTensors(batch_first=True))
         # testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size_test, shuffle=False, num_workers=args.num_workers, drop_last=False, collate_fn=tonic.collation.PadTensors(batch_first=True))
 
-        trainloader, testloader = SHD_dataloaders(datasets_path='./datasets', n_bins=args.n_bins, batch_size=args.batch_size_train, time_step=args.time_steps)
+        trainloader, testloader = SHD_dataloaders(datasets_path='./datasets', n_bins=args.n_bins, batch_size=args.batch_size_train, time_step=args.time_step)
 
     dcls_p_params = []
     w_params = []   
@@ -83,20 +85,8 @@ def main():
         elif param.requires_grad:
             w_params.append(param)
 
-    # for m in model.modules():
-    #     if isinstance(m, Dcls1d):
-    #         dcls_p_params.append(m.P)
-    #         w_params.append(m.weight)
-    #     elif isinstance(m, nn.Linear):
-    #         w_params.append(m.weight)
-    #         w_params.append(m.bias)
-    # print("trainset: ", len(trainset))
-    # print("testset: ", len(testset))
-
     optimizer_dcls = optim.Adam(dcls_p_params, lr=100*args.lr, weight_decay=0)
     optimizer_w = optim.Adam(w_params, lr=args.lr, weight_decay=1e-5)
-
-    #optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-5)
 
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
     criterion = SF.mse_count_loss(correct_rate=0.8, incorrect_rate=0.2)
@@ -147,7 +137,7 @@ def main():
             wandb.log({"train loss": loss.item()})
 
         #scheduler.step()
-        model.decrease_sig(epoch=i, num_epochs=args.num_epochs, time_steps=args.time_steps)
+        model.decrease_sig(epoch=epoch, num_epochs=args.num_epochs, time_step=args.time_step)
 
         #print epoch loss
         loss_history.append(running_loss / len(trainloader))
