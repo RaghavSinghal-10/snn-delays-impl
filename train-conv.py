@@ -23,7 +23,7 @@ parser.add_argument('--batch_size_train', default=256, type=int, help='batch siz
 parser.add_argument('--batch_size_test', default=256, type=int, help='batch size for training the linear classifier')
 parser.add_argument('--num_epochs', default=200, type=int, help='number of epochs for training the linear classifier')
 parser.add_argument('--num_workers', default=8, type=int, help='number of workers for loading the data')
-parser.add_argument('--lr', default=0.005, type=float, help='learning rate for training the linear classifier')
+parser.add_argument('--lr', default=0.001, type=float, help='learning rate for training the linear classifier')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum for training the linear classifier')
 parser.add_argument('--device', default='cuda', type=str, help='device to be used for training the linear classifier')
 parser.add_argument('--learn_beta', action='store_true', help='learn beta for the LIF neurons in the backbone')
@@ -31,7 +31,7 @@ parser.add_argument('--learn_threshold', action='store_true', help='learn thresh
 parser.add_argument('--threshold', default=1.0, type=float, help='threshold for the LIF neurons in the linear classifier')
 parser.add_argument("--surr", default="atan", type=str, help="surrogate neuron: atan, fast_sigmoid")
 
-parser.add_argument('--label_percent', default=0.1, type=float, help='percentage of labeled data to be used for training the linear classifier')
+parser.add_argument('--label_percent', default=100, type=float, help='percentage of labeled data to be used for training the linear classifier')
 parser.add_argument('--beta', default=0.5, type=float, help='beta for the LIF neurons in the backbone')
 parser.add_argument('--time_steps', default=30, type=int, help='number of time steps for the SNN')
 
@@ -46,11 +46,11 @@ def main():
 
     device = args.device if torch.cuda.is_available() else "cpu"
 
-    model = SNN_Delay(beta=args.beta_bb, threshold=args.threshold_bb, surr = args.surr, final_channels=args.size_in,
-                            learn_beta=args.learn_beta_bb, learn_threshold=args.learn_threshold_bb, time_steps=args.time_steps).to(device)
+    model = SNN_Delay_Conv_Small(beta=args.beta, threshold=args.threshold, surr = args.surr, learn_beta=args.learn_beta, 
+                           learn_threshold=args.learn_threshold, time_steps=args.time_steps).to(device)
 
     #print trainable parameters of the model
-    print("Parameters of the bb model: ")
+    print("Parameters of the model: ")
     for name, param in model.named_parameters():
         if param.requires_grad:
             print(name, param.data.shape)
@@ -92,7 +92,7 @@ def main():
             w_params.append(param)
             print("w params", name)
 
-    optimizer_p = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999))
+    optimizer_p = torch.optim.Adam(model.parameters(), lr=100*args.lr, betas=(0.9, 0.999))
     optimizer_w = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999))
 
 
